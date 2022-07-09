@@ -35,6 +35,15 @@ pub struct Deque<T, const CAPACITY: usize> {
 }
 
 impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
+    /// Creates an empty deque.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let deque: Deque<u32, 8> = Deque::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             // Empty state:
@@ -53,22 +62,85 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
         }
     }
 
+    /// The maximum number of elements this deque can hold.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let deque: Deque<u32, 10> = Deque::new();
+    /// assert_eq!(deque.capacity(), 10);
+    /// ```
     pub fn capacity(&self) -> usize {
         CAPACITY
     }
 
+    /// The number of elements currently in the deque.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut deque: Deque<i32, 8> = Deque::new();
+    /// assert_eq!(deque.len(), 0);
+    /// deque.push_back(1);
+    /// assert_eq!(deque.len(), 1);
+    /// ```
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Returns `true` if the deque is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::VecDeque;
+    ///
+    /// let mut deque = VecDeque::new();
+    /// assert!(deque.is_empty());
+    /// deque.push_front(1);
+    /// assert!(!deque.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Returns `true` if the deque is full.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut deque: Deque<i32, 4> = Deque::new();
+    /// deque.push_front(1);
+    /// assert!(!deque.is_full());
+    /// deque.push_front(2);
+    /// assert!(!deque.is_full());
+    /// deque.push_front(3);
+    /// assert!(!deque.is_full());
+    /// deque.push_front(4);
+    /// assert!(deque.is_full());
+    /// ```
     pub fn is_full(&self) -> bool {
         self.len == CAPACITY
     }
 
+    /// Clears the deque, removing all values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut deque: Deque<i32, 4> = Deque::new();
+    /// deque.push_back(1);
+    /// deque.clear();
+    /// assert!(deque.is_empty());
+    /// ```
     pub fn clear(&mut self) {
         // Get a list of valid indexes.
         let indexes = self.indexes();
@@ -96,13 +168,25 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
         }
     }
 
+    /// Prepends an element to the deque.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut d: Deque<i32, 4> = Deque::new();
+    /// d.push_front(1);
+    /// d.push_front(2);
+    /// assert_eq!(d.pop_front(), Some(2));
+    /// ```
     pub fn push_front(&mut self, value: T) -> Result<(), T> {
         if self.is_full() {
             Err(value)
         } else {
             // Insert value before the beginning of the region:
             let new_start = (self.start + CAPACITY - 1) % CAPACITY;
-            self.data[self.start].write(value);
+            self.data[new_start].write(value);
 
             // Expand region to include new element:
             self.start = new_start;
@@ -111,6 +195,18 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
         }
     }
 
+    /// Appends an element to the back of the deque.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut buf: Deque<i32, 4> = Deque::new();
+    /// buf.push_back(1);
+    /// buf.push_back(3);
+    /// assert_eq!(buf.pop_back(), Some(3));
+    /// ```
     pub fn push_back(&mut self, value: T) -> Result<(), T> {
         if self.is_full() {
             Err(value)
@@ -125,13 +221,29 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
         }
     }
 
+    /// Removes the first element and returns it, or `None` if the deque is
+    /// empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut d: Deque<i32, 4> = Deque::new();
+    /// d.push_back(1);
+    /// d.push_back(2);
+    ///
+    /// assert_eq!(d.pop_front(), Some(1));
+    /// assert_eq!(d.pop_front(), Some(2));
+    /// assert_eq!(d.pop_front(), None);
+    /// ```
     pub fn pop_front(&mut self) -> Option<T> {
         if self.is_empty() {
             None
         } else {
             // Shrink region by 1 element from start.
-            let old_start = (self.start + 1) % CAPACITY;
-            self.start = (self.start + 1) % CAPACITY;
+            let old_start = self.start;
+            self.start = (old_start + 1) % CAPACITY;
             self.len -= 1;
 
             // Safety: The value in the MaybeUninit must be valid.
@@ -147,6 +259,20 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
         }
     }
 
+    /// Removes the last element from the deque and returns it, or `None` if
+    /// it is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut buf: Deque<i32, 4> = Deque::new();
+    /// assert_eq!(buf.pop_back(), None);
+    /// buf.push_back(1);
+    /// buf.push_back(3);
+    /// assert_eq!(buf.pop_back(), Some(3));
+    /// ```
     pub fn pop_back(&mut self) -> Option<T> {
         if self.is_empty() {
             None
