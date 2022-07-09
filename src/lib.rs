@@ -44,7 +44,7 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
     ///
     /// let deque: Deque<u32, 8> = Deque::new();
     /// ```
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             // Empty state:
             start: 0,
@@ -72,7 +72,7 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
     /// let deque: Deque<u32, 10> = Deque::new();
     /// assert_eq!(deque.capacity(), 10);
     /// ```
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         CAPACITY
     }
 
@@ -88,7 +88,7 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
     /// deque.push_back(1);
     /// assert_eq!(deque.len(), 1);
     /// ```
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
@@ -104,7 +104,7 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
     /// deque.push_front(1);
     /// assert!(!deque.is_empty());
     /// ```
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len == 0
     }
 
@@ -125,7 +125,7 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
     /// deque.push_front(4);
     /// assert!(deque.is_full());
     /// ```
-    pub fn is_full(&self) -> bool {
+    pub const fn is_full(&self) -> bool {
         self.len == CAPACITY
     }
 
