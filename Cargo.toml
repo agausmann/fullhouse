@@ -2,3 +2,9 @@
 name = "fullhouse"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.60"
+description = "A simple statically-allocated deque."
+repository = "https://github.com/agausmann/fullhouse"
+license = "MIT"
+keywords = ["deque", "static", "embedded"]
+categories = ["data-structures", "embedded", "no-std"]
