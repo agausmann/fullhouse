@@ -1,15 +1,20 @@
 #![no_std]
 
-use core::mem::MaybeUninit;
+use core::{
+    mem::MaybeUninit,
+    ops::{Index, IndexMut},
+};
 
 pub struct Deque<T, const CAPACITY: usize> {
-    // The index of the first element stored in `data`, if non-empty.
+    /// The index of the first element stored in `data`, if non-empty.
     start: usize,
 
-    // The first index past the last element stored in `data`.
+    /// The first index past the last element stored in `data`.
     end: usize,
 
-    // The number of elements stored in `data`.
+    /// The number of elements stored in `data`.
+    ///
+    /// Always congruent with `end - start` modulo `CAPACITY`, in other
     len: usize,
 
     /// A circular buffer.
@@ -31,6 +36,13 @@ pub struct Deque<T, const CAPACITY: usize> {
     /// - If `start == end`, it is an ambiguous case, the buffer may either be
     /// full or empty, and the `len` field should be used to disambiguate this
     /// case.
+    ///
+    /// In all cases, the `len` field tracks the total number of elements in
+    /// all valid regions:
+    ///
+    /// - If `start < end`, then `len` is equal to `end - start`.
+    /// - If `start > end`, then `len` is equal to `CAPACITY + end - start`.
+    /// - If `start == end`, then `len` is either equal to `0` or `CAPACITY`.
     data: [MaybeUninit<T>; CAPACITY],
 }
 
@@ -294,8 +306,144 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
         }
     }
 
-    // Indexes of valid values in the data array, in logical order from `start`
-    // to `end`.
+    /// Provides a reference to the element at the given index.
+    ///
+    /// Element at index 0 is at the front of the queue.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut buf: Deque<i32, 4> = Deque::new();
+    /// buf.push_back(3);
+    /// buf.push_back(4);
+    /// buf.push_back(5);
+    /// assert_eq!(buf.get(1), Some(&4));
+    /// ```
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.data_index(index).map(|idx| {
+            // Safety: The value in the MaybeUninit must be valid.
+            // This is guaranteed by `data_index`, which will only return
+            // `Some` if the index points to a valid, initialized element.
+            unsafe { self.data[idx].assume_init_ref() }
+        })
+    }
+
+    /// Provides a mutable reference to the element at the given index.
+    ///
+    /// Element at index 0 is at the front of the queue.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut buf: Deque<i32, 4> = Deque::new();
+    /// buf.push_back(3);
+    /// buf.push_back(4);
+    /// buf.push_back(5);
+    /// if let Some(elem) = buf.get_mut(1) {
+    ///     *elem = 7;
+    /// }
+    ///
+    /// assert_eq!(buf[1], 7);
+    /// ```
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.data_index(index).map(|idx| {
+            // Safety: The value in the MaybeUninit must be valid.
+            // This is guaranteed by `data_index`, which will only return
+            // `Some` if the index points to a valid, initialized element.
+            unsafe { self.data[idx].assume_init_mut() }
+        })
+    }
+
+    /// Provides a reference to the front element, or `None` if the deque is
+    /// empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut d: Deque<i32, 4> = Deque::new();
+    /// assert_eq!(d.front(), None);
+    ///
+    /// d.push_back(1);
+    /// d.push_back(2);
+    /// assert_eq!(d.front(), Some(&1));
+    /// ```
+    pub fn front(&self) -> Option<&T> {
+        self.get(0)
+    }
+
+    /// Provides a mutable reference to the front element, or `None` if the
+    /// deque is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut d: Deque<i32, 4> = Deque::new();
+    /// assert_eq!(d.front_mut(), None);
+    ///
+    /// d.push_back(1);
+    /// d.push_back(2);
+    /// match d.front_mut() {
+    ///     Some(x) => *x = 9,
+    ///     None => (),
+    /// }
+    /// assert_eq!(d.front(), Some(&9));
+    /// ```
+    pub fn front_mut(&mut self) -> Option<&mut T> {
+        self.get_mut(0)
+    }
+
+    /// Provides a reference to the back element, or `None` if the deque is
+    /// empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut d: Deque<i32, 4> = Deque::new();
+    /// assert_eq!(d.back(), None);
+    ///
+    /// d.push_back(1);
+    /// d.push_back(2);
+    /// assert_eq!(d.back(), Some(&2));
+    /// ```
+    pub fn back(&self) -> Option<&T> {
+        self.get(self.len().wrapping_sub(1))
+    }
+
+    /// Provides a mutable reference to the back element, or `None` if the
+    /// deque is empty.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use fullhouse::Deque;
+    ///
+    /// let mut d: Deque<i32, 4> = Deque::new();
+    /// assert_eq!(d.back(), None);
+    ///
+    /// d.push_back(1);
+    /// d.push_back(2);
+    /// match d.back_mut() {
+    ///     Some(x) => *x = 9,
+    ///     None => (),
+    /// }
+    /// assert_eq!(d.back(), Some(&9));
+    /// ```
+    pub fn back_mut(&mut self) -> Option<&mut T> {
+        self.get_mut(self.len().wrapping_sub(1))
+    }
+
+    /// Indexes of valid values in the data array, in logical order from `start`
+    /// to `end`.
     fn indexes(&self) -> impl Iterator<Item = usize> {
         // A bit of a workaround for the type system - some of these branches
         // could produce a simpler type than `Chain<Range, Range>`
@@ -310,11 +458,51 @@ impl<T, const CAPACITY: usize> Deque<T, CAPACITY> {
         };
         first.chain(second)
     }
+
+    /// Compute an index into the `data` array given the offset from `start`.
+    ///
+    /// This is guaranteed to return an index to a valid element. If the index
+    /// would point outside the valid range(s) (i.e., if `offset >= len`), this
+    /// function will instead return `None`.
+    fn data_index(&self, offset: usize) -> Option<usize> {
+        if offset < self.len() {
+            // Check whether index wraps around the end of `data`.
+            //
+            // This check basically lets us implement `(self.start + offset) %
+            // CAPACITY` without causing any wrapping arithmetic or using
+            // modulo.
+            //
+            // I don't _think_ anyone will use this with capacities near the
+            // size limit of `usize`, but you never know.
+            let pre_wrap_size = CAPACITY - self.start;
+            if offset < pre_wrap_size {
+                Some(self.start + offset)
+            } else {
+                Some(offset - pre_wrap_size)
+            }
+        } else {
+            None
+        }
+    }
 }
 
 impl<T, const CAPACITY: usize> Drop for Deque<T, CAPACITY> {
     fn drop(&mut self) {
         // Drops any elements still in the deque:
         self.clear();
+    }
+}
+
+impl<T, const CAPACITY: usize> Index<usize> for Deque<T, CAPACITY> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index).expect("Out of bounds access")
+    }
+}
+
+impl<T, const CAPACITY: usize> IndexMut<usize> for Deque<T, CAPACITY> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_mut(index).expect("Out of bounds access")
     }
 }
